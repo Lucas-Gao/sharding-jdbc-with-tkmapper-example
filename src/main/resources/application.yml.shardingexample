@@ -1,0 +1,67 @@
+spring:
+  profiles:
+    active: dev
+  application:
+    name: data-sharding
+
+mybatis:
+  typeAliasesPackage: xyz.lucas.verify.sharding.dto
+  mapperLocations: classpath:mapper/*.xml
+
+mapper:
+  mappers:
+    - tk.mybatis.mapper.common.Mapper
+  notEmpty: false
+  identity: MYSQL
+
+logging:
+  level:
+    xyz.lucas.verify.sharding.mapper: DEBUG
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+---
+server:
+  port: 8888
+
+spring:
+  profiles: dev
+  datasource:
+    name: ds_0,ds_1
+
+sharding:
+  jdbc:
+    datasource:
+      names: ds_0,ds_1  #配置数据源名字
+      ds_0:   #  配置数据库源 dataSource
+        driver-class-name: com.mysql.jdbc.Driver
+        url: jdbc:mysql://localhost:3306/user_0?useUnicode=true&characterEncoding=utf-8&useSSL=false
+        username: root
+        password: 123456
+        type: com.alibaba.druid.pool.DruidDataSource
+      ds_1:
+        driver-class-name: com.mysql.jdbc.Driver
+        url: jdbc:mysql://localhost:3306/user_1?useUnicode=true&characterEncoding=utf-8&useSSL=false
+        username: root
+        password: 123456
+        type: com.alibaba.druid.pool.DruidDataSource
+    config:
+      sharding:
+        default-database-strategy:
+            inline:
+              sharding-column: user_id
+              algorithm-expression: ds_${user_id % 2}
+
+        default-data-source-name: ds_0   # 默认使用的数据源
+        tables:  # 定义表的分表分库规则，没有定义，默认不分库分表
+          sys_user:
+            actual-data-nodes: ds_${0..1}.sys_user_${0..1}
+#            DatabaseStrategy:      # 分库策略
+#              inline:
+#                sharding-column: user_id   # 分库分表键,分库分表表达式使用groovy语言
+#                algorithm-expression: ds_${(user_id.toString().hashCode()/2).longValue()%2}  # 分库表达式 第一个数字 4 ，代表第一个数据库有4个表，第二个 2代表有两个数据库
+            table-strategy:       # 分表策略
+              inline:
+                sharding-column: user_id
+                algorithm-expression: sys_user_${user_id % 2}  # 分表表达式 2 代表总共有多少个表
+            key-generator-column-name: user_id

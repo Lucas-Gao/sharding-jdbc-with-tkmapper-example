@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="xyz.lucas.example.mapper.OrderMapper">
+  <resultMap id="BaseResultMap" type="xyz.lucas.example.entity.Order">
+    <id column="order_id" jdbcType="BIGINT" property="orderId" />
+    <result column="user_id" jdbcType="INTEGER" property="userId" />
+    <result column="status" jdbcType="VARCHAR" property="status" />
+  </resultMap>
+
+  <resultMap id="orderItemListMap" type="xyz.lucas.example.entity.Order">
+    <id column="order_id" jdbcType="BIGINT" property="orderId" />
+    <result column="user_id" jdbcType="INTEGER" property="userId" />
+    <result column="status" jdbcType="VARCHAR" property="status" />
+    <collection property="orderItemList" columnPrefix="item_"
+      resultMap="xyz.lucas.example.mapper.OrderItemMapper.BaseResultMap">
+    </collection>
+  </resultMap>
+
+  <select id="getItemList" resultMap="orderItemListMap" parameterType="java.lang.Long">
+    SELECT o.order_id,
+      o.user_id,
+      o.`status`,
+      oi.order_item_id item_order_item_id,
+      oi.order_id item_order_id,
+      oi.user_id item_user_id,
+      oi.status item_status
+    FROM `order` o
+      LEFT JOIN
+      order_item oi ON o.order_id = oi.order_id
+    WHERE o.order_id = #{orderId}
+  </select>
+
+</mapper>

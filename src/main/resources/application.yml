@@ -1,0 +1,130 @@
+spring:
+  profiles:
+    active: dev
+  application:
+    name: sharding-jdbc-with-tkmapper-example
+
+mybatis:
+  typeAliasesPackage: xyz.lucas.example.entity
+  mapperLocations: classpath:mapper/*.xml
+
+mapper:
+  mappers:
+    - xyz.lucas.example.mybatis.BaseMapper
+  # 设置 insert 和 update 中，是否判断字符串类型!=''
+  notEmpty: true
+  identity: mysql
+  enum-as-simple-type: true
+
+pagehelper:
+  # 分页合理化参数
+  reasonable: true
+
+
+
+logging:
+  level: info
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+---
+spring:
+  profiles: dev
+  datasource:
+    name: ds_0,ds_1
+
+server:
+  port: 8080
+
+
+mysql:
+  host: localhost
+  masterport: 3306
+  slaveport: 3307
+  database0: product_0
+  database1: product_1
+
+sharding:
+  jdbc:
+    datasource:
+      #配置数据源名字, 读写分离则配置所有主从库
+      names: ds_master_0,ds_master_1,ds_master_0_slave_0,ds_master_1_slave_0
+      #  配置ds_0数据库源
+      ds_master_0:
+        driver-class-name: com.mysql.jdbc.Driver
+        url: jdbc:mysql://localhost:3306/product_0?useUnicode=true&characterEncoding=utf-8&useSSL=false
+        username: root
+        password: 123456
+        type: com.alibaba.druid.pool.DruidDataSource
+      ds_master_1:
+        driver-class-name: com.mysql.jdbc.Driver
+        url: jdbc:mysql://localhost:3306/product_1?useUnicode=true&characterEncoding=utf-8&useSSL=false
+        username: root
+        password: 123456
+        type: com.alibaba.druid.pool.DruidDataSource
+      ds_master_0_slave_0:
+        driver-class-name: com.mysql.jdbc.Driver
+        url: jdbc:mysql://localhost:3307/product_0?useUnicode=true&characterEncoding=utf-8&useSSL=false
+        username: root
+        password: 123456
+        type: com.alibaba.druid.pool.DruidDataSource
+      ds_master_1_slave_0:
+        driver-class-name: com.mysql.jdbc.Driver
+        url: jdbc:mysql://localhost:3307/product_1?useUnicode=true&characterEncoding=utf-8&useSSL=false
+        username: root
+        password: 123456
+        type: com.alibaba.druid.pool.DruidDataSource
+    config:
+      sharding:
+        default-key-generator-class: io.shardingjdbc.core.keygen.DefaultKeyGenerator
+        # 默认使用的数据源
+        default-data-source-name: ds_0
+        # 默认分库策略
+        default-database-strategy:
+            inline:
+              sharding-column: order_id
+              # 分库表达式: ID % 库数量
+              algorithm-expression: ds_${Math.floorMod(order_id.longValue(), 2L)}
+        # 定义表的分表分库规则，没有定义，默认不分库分表
+        tables:
+          # order表
+          order:
+            actual-data-nodes: ds_${0..1}.order_${0..1}
+            # 分表策略
+            table-strategy:
+              inline:
+                sharding-column: order_id
+                algorithm-expression: order_${Math.floorMod(Math.floorDiv(order_id.longValue(), 2L), 2L)}
+            # 分布式主键
+            key-generator-column-name: order_id
+
+          # order_item表
+          order_item:
+            actual-data-nodes: ds_${0..1}.order_item_${0..1}
+            # 分库策略
+            database-strategy:
+              inline:
+                sharding-column: order_item_id
+                algorithm-expression: ds_${Math.floorMod(order_item_id.longValue(), 2L)}
+            table-strategy:
+              inline:
+                sharding-column: order_item_id
+                algorithm-expression: order_item_${Math.floorMod(Math.floorDiv(order_item_id.longValue(), 2L), 2L)}
+            # 分布式主键
+            key-generator-column-name: order_item_id
+
+        # 读写分离规则
+        master-slave-rules:
+          ds_0:
+            masterDataSourceName: ds_master_0
+            slaveDataSourceNames: ds_master_0_slave_0
+          ds_1:
+            masterDataSourceName: ds_master_1
+            slaveDataSourceNames: ds_master_1_slave_0
+
+        # 显示SQL
+        props:
+          sql:
+            show: true
+
+
